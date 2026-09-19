@@ -5,6 +5,12 @@ def test_defaults_groq():
     assert Config().provider == "groq"
 
 
+def test_overlay_defaults():
+    cfg = Config()
+    assert cfg.overlay_enabled is True
+    assert 0.4 <= cfg.overlay_alpha <= 1.0
+
+
 def test_set_value_json():
     cfg = Config()
     set_value(cfg, "vocabulary", '["Groq"]')

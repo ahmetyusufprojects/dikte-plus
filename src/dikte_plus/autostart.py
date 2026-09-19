@@ -1,4 +1,9 @@
-"""Oturum açılışında otomatik başlatma (Windows + macOS)."""
+"""Oturum açılışında otomatik başlatma (Windows + macOS).
+
+Windows'ta konsolsuz (`dikte-gui.exe`) hedef + gizli VBS kullanılır,
+böylece oturum açılışında terminal penceresi görünmez, yalnızca
+tepsi simgesi + mini hap gelir.
+"""
 
 from __future__ import annotations
 
@@ -13,15 +18,33 @@ def _win_startup_dir() -> Path:
     return Path(base) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 
 
+def _win_target() -> str:
+    """Konsolsuz başlatma hedefini seç: dikte-gui.exe > pythonw -m dikte_plus."""
+    import sysconfig
+
+    scripts = Path(sysconfig.get_path("scripts"))
+    for name in ("dikte-gui.exe", "dikte-gui", "dikte.exe"):
+        exe = scripts / name
+        if exe.exists():
+            if name.startswith("dikte-gui"):
+                return str(exe)  # gui-script: konsol penceresi açmaz
+            # dikte.exe konsolludur; VBS yine de gizler ama kısa bir
+            # yanıp sönme olabilir — yine de çalışır.
+            return str(exe)
+    # Son çare: pythonw (konsolsuz Python) ile modül çalıştır
+    pyw = Path(sys.executable).with_name("pythonw.exe")
+    if pyw.exists():
+        return f'{pyw} -m dikte_plus run'
+    return f'{Path(sys.executable)} -m dikte_plus run'
+
+
 def enable() -> str:
     if sys.platform == "win32":
-        import sysconfig
-
-        scripts = Path(sysconfig.get_path("scripts"))
-        exe = scripts / "dikte.exe"
-        target = exe if exe.exists() else Path(sys.executable)
+        target = _win_target()
         vbs = _win_startup_dir() / "DiktePlus.vbs"
         vbs.parent.mkdir(parents=True, exist_ok=True)
+        # 0 = gizli pencere, False = bekleme. Konsolsuz exe ile birleşince
+        # açılışta hiç terminal görünmez.
         vbs.write_text(
             f'CreateObject("Wscript.Shell").Run "{target}", 0, False\n', encoding="utf-8"
         )

@@ -122,9 +122,26 @@ dikte config set cleanup true
 dikte config set hotkey '"ctrl_r"'
 dikte config set hotkey_mode '"hold"'
 
-# Mini hap'ı kapat/aç
+# Mini hap'ı kapat/aç, saydamlık (0.4-1.0)
 dikte config set overlay_enabled false
+dikte config set overlay_alpha 0.65
 ```
+
+## Terminalsiz çalıştırma (önemli)
+
+- `dikte` konsol uygulamasını başlatır: terminali kapatırsan uygulama da kapanır — bu normal.
+- Günlük kullanım için **konsolsuz** başlat:
+  - `dikte-gui` komutunu çalıştır (terminalde iz bırakmaz), veya
+  - `scripts/DiktePlus-Sessiz.vbs` dosyasına çift tıkla, veya
+  - `dikte autostart enable` de — açılışta terminal göstermeden başlar
+    (artık `dikte-gui.exe` + gizli VBS kullanır, yalnızca tepsi + hap gelir).
+- Ana pencereyi kapatırsan (X) uygulama tepsiye küçülür; gerçek çıkış tepsi > Çıkış.
+
+## Odak notu (hap'a tıklayınca imleç)
+
+Hap Windows'ta `WS_EX_NOACTIVATE` ile açılır: tıklama önceki uygulamanın
+odaklanmasını bozmaz, metin kutusundaki imleç korunur. Yine de en sağlam yol
+kısayoldur (`Ctrl+Shift+Space`): fare hiç metin kutusundan ayrılmaz.
 
 ## Yapılandırma referansı
 
@@ -147,7 +164,7 @@ dikte config set overlay_enabled false
 | `sounds` | `true` | Bip sesleri |
 | `audio_device` | sistem varsayılanı | `dikte devices` ile bak |
 | `max_seconds` / `min_seconds` / `silence_peak` | `120` / `0.3` / `500` | Oto-dur / sessizlik filtresi |
-| `overlay_enabled` / `overlay_position` / `history_size` | `true` / `top-center` / `20` | **Dikte+'ta yeni** |
+| `overlay_enabled` / `overlay_position` / `overlay_alpha` / `history_size` | `true` / `top-center` / `0.8` / `20` | **Dikte+'ta yeni** |
 
 ## Sorun giderme
 

@@ -64,6 +64,7 @@ class Config:
     # --- Görsel arayüz tercihleri (TypeLess'te yok, Dikte+'ta yeni) ---
     overlay_enabled: bool = True
     overlay_position: str = "top-center"  # "top-center" veya "bottom-right"
+    overlay_alpha: float = 0.8  # 0.4 (çok saydam) - 1.0 (opak)
     history_size: int = 20
 
     def resolve_api_key(self) -> str:
