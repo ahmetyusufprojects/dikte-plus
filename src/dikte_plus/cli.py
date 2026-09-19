@@ -36,6 +36,9 @@ def main(argv: list[str] | None = None) -> None:
     p_test.add_argument("seconds", nargs="?", type=float, default=4.0)
     p_auto = sub.add_parser("autostart", help="oturum açılışında otomatik başlat")
     p_auto.add_argument("action", choices=["enable", "disable", "status"])
+    p_snd = sub.add_parser("sounds", help="ses temasını listele, dene veya seç")
+    p_snd.add_argument("action", nargs="?", default="list", choices=["list", "test", "set"])
+    p_snd.add_argument("theme", nargs="?", default=None)
 
     args = parser.parse_args(argv)
     command = args.command or "run"
@@ -56,6 +59,8 @@ def main(argv: list[str] | None = None) -> None:
         cmd_test(args.seconds)
     elif command == "autostart":
         cmd_autostart(args.action)
+    elif command == "sounds":
+        cmd_sounds(args.action, args.theme)
 
 
 def cmd_run(no_tray: bool, gui: bool = True) -> None:
@@ -187,3 +192,33 @@ def cmd_autostart(action: str) -> None:
     else:
         enabled, path = autostart.status()
         print(f"Otomatik başlatma {'açık' if enabled else 'kapalı'} ({path})")
+
+
+def cmd_sounds(action: str, theme: str | None) -> None:
+    import time as _time
+
+    from . import sounds
+    from .config import load_config, save_config, sounds_dir
+
+    cfg = load_config()
+    if action == "list":
+        print("Ses temaları (mevcut: %s):" % getattr(cfg, "sound_theme", "soft"))
+        for name, desc in sounds.list_themes().items():
+            print(f"  {name:8}  {desc}")
+        print(f"\nÖzel WAV klasörü: {sounds_dir()}  (start.wav / stop.wav / done.wav / error.wav)")
+        print("Dene:  dikte sounds test [tema]     Seç:  dikte sounds set <tema>")
+        return
+    if action == "set":
+        if theme not in sounds.list_themes():
+            raise SystemExit(f"bilinmeyen tema {theme!r}; seçenekler: {', '.join(sounds.list_themes())}")
+        cfg.sound_theme = theme
+        save_config(cfg)
+        print(f"Ses teması: {theme}")
+    if action == "test":
+        theme = theme or getattr(cfg, "sound_theme", "soft")
+        if theme not in sounds.list_themes():
+            raise SystemExit(f"bilinmeyen tema {theme!r}")
+        print(f"Dinliyorsun: {theme}  (başlat → durdur → bitti)")
+        for kind in ("start", "stop", "done"):
+            sounds.play(kind, theme=theme, sounds_dir=sounds_dir())
+            _time.sleep(0.7)

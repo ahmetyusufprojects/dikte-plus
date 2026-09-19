@@ -1,7 +1,8 @@
 """Ekran üstünde her zaman görünen mini kayıt göstergesi (kompakt hap).
 
-- Küçük (230x46), yarı saydam (varsayılan alpha 0.8, config'den ayarlanır),
-  yumuşak renkler; dikkat dağıtmaz.
+- Küçük (240x48), yarı saydam (varsayılan alpha 0.8, config'den ayarlanır),
+  yumuşak renkler ve **yuvarlak köşeler** (chroma-key saydamlığıyla).
+- Uzun durum yazısı kutuya sığmazsa **sağa-sola kayan yazı** (marquee) olur.
 - Sürüklenebilir: basılı tutup sürükle. Kısa tık = başlat/durdur.
 - Windows'ta WS_EX_NOACTIVATE ile odak çalmaz: metin kutusundaki imleç
   hap'a tıklayınca kaybolmaz, yapıştırma hedefi korunur.
@@ -11,15 +12,23 @@
 from __future__ import annotations
 
 import tkinter as tk
+import tkinter.font as tkfont
 
-# Yumuşak, düşük doygunluklu renkler (eski canlı kırmızı/turuncu yerine)
+# Yumuşak, düşük doygunluklu renkler
 COLORS = {
     "idle": {"bg": "#2b2f36", "dot": "#9aa0a6", "fg": "#d7dae0"},
     "recording": {"bg": "#4a2e2e", "dot": "#e07a7a", "fg": "#f5e6e6"},
     "transcribing": {"bg": "#47402a", "dot": "#d9b96a", "fg": "#f2ead6"},
 }
 
-W, H = 230, 46
+W, H, RADIUS = 240, 48, 14
+_CHROMA = "magenta"  # pencerenin görünmez rengi (köşeler)
+
+
+def _round_rect(canvas: tk.Canvas, x1, y1, x2, y2, r, **kw):
+    pts = [x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r,
+           x2, y2, x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
+    return canvas.create_polygon(pts, smooth=True, **kw)
 
 
 class Overlay:
@@ -29,6 +38,11 @@ class Overlay:
         self.win = tk.Toplevel(root)
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)
+        try:
+            self.win.configure(bg=_CHROMA)
+            self.win.attributes("-transparentcolor", _CHROMA)
+        except Exception:
+            pass
         try:
             alpha = float(getattr(app.cfg, "overlay_alpha", 0.8) or 0.8)
             alpha = max(0.4, min(1.0, alpha))
@@ -43,34 +57,28 @@ class Overlay:
         self.win.update_idletasks()
         self._make_noactivate()
 
+        self.font = tkfont.Font(family="Segoe UI", size=8)
+        self.font_bold = tkfont.Font(family="Segoe UI", size=8, weight="bold")
+
+        self.cv = tk.Canvas(self.win, width=W, height=H, bg=_CHROMA, highlightthickness=0, bd=0)
+        self.cv.pack(fill="both", expand=True)
+
         self._press_xy = None
         self._win_xy = None
         self._moved = False
+        self._click_pending = None
+        # Kayan yazı durumu
+        self._mq_text = ""
+        self._mq_off = 0.0
+        self._mq_dir = 1
+        self._mq_pause = 0
 
-        self.frame = tk.Frame(self.win, bg=COLORS["idle"]["bg"])
-        self.frame.pack(fill="both", expand=True)
-
-        self.top = tk.Frame(self.frame, bg=COLORS["idle"]["bg"])
-        self.top.pack(fill="x", padx=8, pady=(6, 0))
-        self.dot = tk.Label(self.top, text="●", bg=COLORS["idle"]["bg"], fg=COLORS["idle"]["dot"], font=("Segoe UI", 8))
-        self.dot.pack(side="left")
-        self.status = tk.Label(
-            self.top, text="Hazır", bg=COLORS["idle"]["bg"], fg=COLORS["idle"]["fg"], font=("Segoe UI", 8)
-        )
-        self.status.pack(side="left", padx=(5, 0))
-        self.timer = tk.Label(self.top, text="", bg=COLORS["idle"]["bg"], fg=COLORS["idle"]["fg"], font=("Segoe UI", 8))
-        self.timer.pack(side="right")
-
-        self.bar = tk.Canvas(self.frame, height=4, bg=COLORS["idle"]["bg"], highlightthickness=0)
-        self.bar.pack(fill="x", padx=8, pady=(4, 6))
-
-        for w in (self.win, self.frame, self.top, self.dot, self.status, self.timer, self.bar):
+        for w in (self.win, self.cv):
             w.bind("<ButtonPress-1>", self._drag_start)
             w.bind("<B1-Motion>", self._drag_move)
             w.bind("<ButtonRelease-1>", self._click_toggle)
             w.bind("<Double-Button-1>", self._open_main)
             w.bind("<Button-3>", self._open_main)
-        self._click_pending = None
         self.update()
 
     # --- konum / sürükleme ---
@@ -104,8 +112,6 @@ class Overlay:
             self.win.geometry(f"+{self._win_xy[0] + dx}+{self._win_xy[1] + dy}")
 
     def _click_toggle(self, _ev):
-        # Sürükleme ise toggle yapma; kısa tık ise başlat/durdur.
-        # Çift tıkı beklemek için 220 ms gecikmeli çalış (yoksa çift tık 2x toggle yapar).
         moved, self._moved = self._moved, False
         self._press_xy = None
         if moved:
@@ -131,18 +137,12 @@ class Overlay:
             except Exception:
                 pass
             self._click_pending = None
-        self._moved = True  # çift tıkın tek-tık toggle'ını iptal et
+        self._moved = True
         if self.on_open_main:
             self.on_open_main()
 
     # --- odak çalmayı engelle (Windows) ---
     def _make_noactivate(self):
-        """Hap'a tıklanınca önceki uygulamanın odağını çalma.
-
-        Windows'ta WS_EX_NOACTIVATE + WS_EX_TOOLWINDOW bayrakları ayarlanır:
-        hap tıklanabilir kalır ama etkin pencere değişmez, böylece metin
-        kutusundaki imleç korunur ve yapıştırma doğru yere gider.
-        """
         try:
             import sys
 
@@ -167,35 +167,54 @@ class Overlay:
     def hide(self):
         self.win.withdraw()
 
+    # --- çizim ---
+    def _texts(self, state: str):
+        secs = self.app.elapsed()
+        if state == "recording":
+            return "Kaydediliyor — tıkla durdur", f"{secs:04.1f}"
+        if state == "transcribing":
+            return "Yazıya dökülüyor…", ""
+        return (self.app.status_text or "Hazır"), ""
+
     def update(self):
         try:
             state = self.app.state if self.app.state in COLORS else "idle"
             c = COLORS[state]
-            secs = self.app.elapsed()
-            if state == "recording":
-                status_txt = "Kaydediliyor — durdurmak için tıkla"
-                timer_txt = f"{secs:04.1f}"
-            elif state == "transcribing":
-                status_txt = "Yazıya dökülüyor…"
-                timer_txt = ""
+            cv = self.cv
+            cv.delete("all")
+            _round_rect(cv, 1, 1, W - 1, H - 1, RADIUS, fill=c["bg"], outline="")
+            # Nokta
+            cv.create_oval(12, 12, 22, 22, fill=c["dot"], outline="")
+            # Süre (sağda sabit)
+            status_txt, timer_txt = self._texts(state)
+            if timer_txt:
+                cv.create_text(W - 10, 17, text=timer_txt, anchor="e", font=self.font_bold, fill=c["fg"])
+                max_w = W - 36 - self.font_bold.measure(timer_txt) - 10
             else:
-                status_txt = (self.app.status_text or "Hazır")[:30]
-                timer_txt = ""
-            for w in (self.frame, self.top):
-                w.configure(bg=c["bg"])
-            for w in (self.dot, self.status, self.timer):
-                w.configure(bg=c["bg"])
-            self.dot.configure(fg=c["dot"])
-            self.status.configure(text=status_txt, fg=c["fg"])
-            self.timer.configure(text=timer_txt, fg=c["fg"])
-            self.bar.configure(bg=c["bg"])
-            self.bar.delete("all")
-            w = self.bar.winfo_width() or (W - 16)
-            lvl = max(0.0, min(1.0, self.app.level))
-            if state == "recording":
-                self.bar.create_rectangle(0, 0, int(w * lvl), 4, fill=c["dot"], outline="")
+                max_w = W - 36 - 8
+            # Durum yazısı: sığmazsa kayan yazı
+            tw = self.font.measure(status_txt)
+            if tw <= max_w:
+                self._mq_text, self._mq_off, self._mq_dir, self._mq_pause = status_txt, 0.0, 1, 0
+                cv.create_text(28, 17, text=status_txt, anchor="w", font=self.font, fill=c["fg"])
             else:
-                self.bar.create_rectangle(0, 0, w, 1, fill="#454b54", outline="")
+                if status_txt != self._mq_text:
+                    self._mq_text, self._mq_off, self._mq_dir, self._mq_pause = status_txt, 0.0, 1, 6
+                span = tw - max_w
+                if self._mq_pause > 0:
+                    self._mq_pause -= 1
+                else:
+                    self._mq_off += 1.6 * self._mq_dir
+                    if self._mq_off >= span:
+                        self._mq_off, self._mq_dir, self._mq_pause = float(span), -1, 8
+                    elif self._mq_off <= 0:
+                        self._mq_off, self._mq_dir, self._mq_pause = 0.0, 1, 8
+                cv.create_text(28 - self._mq_off, 17, text=status_txt, anchor="w", font=self.font, fill=c["fg"])
+            # Ses seviyesi barı
+            lvl = max(0.0, min(1.0, self.app.level)) if state == "recording" else 0.0
+            cv.create_rectangle(14, H - 12, W - 14, H - 9, fill="#1d2025", outline="")
+            if state == "recording" and lvl > 0.01:
+                cv.create_rectangle(14, H - 12, 14 + int((W - 28) * lvl), H - 9, fill=c["dot"], outline="")
         except Exception:
             pass
         try:

@@ -52,6 +52,7 @@ class Config:
     cleanup_model: str = ""
 
     sounds: bool = True
+    sound_theme: str = "soft"  # soft | bright | calm | classic (sounds/ klasöründeki WAV önceliklidir)
     audio_device: int | str | None = None
     sample_rate: int = 16000
     max_seconds: int = 120
@@ -77,6 +78,10 @@ def config_path() -> Path:
 
 def legacy_config_path() -> Path:
     return Path(platformdirs.user_config_dir(LEGACY_APP_NAME)) / "config.json"
+
+
+def sounds_dir() -> Path:
+    return config_path().parent / "sounds"
 
 
 def load_config(path: Path | None = None) -> Config:

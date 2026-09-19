@@ -1,228 +1,291 @@
 # Dikte+ 🎤
 
-**Groq Whisper tabanlı, görsel arayüzlü Türkçe sesli dikte uygulaması.**
-Kısayola bas, konuş, bırak — metin imlecin neredeyse oraya yazılsın.
-
-> `TypeLess` (`jlgadgeteer/typeless`, MIT) projesinden ilhamla sıfırdan yazıldı.
-> TypeLess'in kanıtlanmış ses motoru aynen korundu, ama en büyük şikâyet çözüldü:
-> **artık ne zaman kaydedip kaydetmediğini her an görüyorsun.**
-
-| Durum | Görünüm |
-|---|---|
-| Hazır | Gri hap + `ctrl+shift+space` ipucu |
-| Kaydediliyor | Kırmızı hap + canlı sayaç + ses seviyesi barı |
-| Yazıya dökülüyor | Turuncu hap + "Yazıya dökülüyor…" |
-| Bitti | Ana pencerede yeşil "✓ Yapıştırıldı (3,2 sn → 48 karakter)" + son metin kutusu |
-| Hata | Kırmızı uyarı + sebep (örn. "API anahtarı reddedildi") |
-
-Ek olarak tam boy **ana pencere** var: büyük 🎤 butonu, ses seviyesi, son metin,
-geçmiş listesi, tek tıkla test, ayarlar penceresi ve tepsi simgesi.
-
-## TypeLess nasıl çalışıyordu? (araştırma özeti)
-
-Kullandığın orijinal uygulama (`pip install git+https://github.com/jlgadgeteer/typeless`,
-v0.1.0, Python 3.10+) şu boru hattını kullanır — Dikte+ da aynısını kullanır:
-
-```
-kısayol (pynput) → mikrofon (sounddevice, 16 kHz mono int16)
-  → WAV kodlama → Groq /audio/transcriptions (whisper-large-v3, ücretsiz katman)
-  → isteğe bağlı LLM cilası (Llama 3.3, dolgu kelime temizliği)
-  → kelime değişimleri + sondaki boşluk
-  → panoya kopyala + Ctrl+V ile yapıştır + eski panoyu geri yükle
-```
-
-- **Durum bildirimi:** sadece tepsi simgesi rengi (gri / kırmızı / turuncu) + kısa bip sesleri.
-  Konsol (`cmd`) dışında bir pencere yok — senin şikâyetin de tam buydu.
-- **Kısayol modları:** `toggle` (bas-başlat / bas-durdur, varsayılan `ctrl+shift+space`)
-  ve `hold` (basılı-tut, örn. `ctrl_r`).
-- **Maliyet:** Groq ücretsiz katman; ücretlide ~0,11 $/saat ses. Ayda 1 saat konuşma
-  1 $'ın çok altında. OpenAI alternatifi de desteklenir.
-- **Doğruluk ayarları:** `vocabulary` (özel kelimeler), `replacements` (yanlış yazım düzeltme),
-  `language` (örn. `tr` sabitleme), `cleanup:true` (AI cilası).
-
-Kaynak: repo kökündeki `pyproject.toml`, `src/typeless/{app,audio,config,hotkey,inject,tray,sounds,providers}.py`
-ve `README.md` tek tek okundu; `typeless-kaynak/` klasörüne klonlanıp incelendi.
-
-## Özellikler
-
-- ✅ Groq `whisper-large-v3` (ücretsiz) varsayılan; OpenAI / local faster-whisper / custom sunucu desteklenir
-- ✅ Her zaman üstte mini hap: sayaç, VU-metre, tek tıkla başlat/durdur, sürüklenebilir
-- ✅ Ana pencere: durum kartı, büyük mikrofon butonu, son metin + kopyala + tekrar-yapıştır, geçmiş (20)
-- ✅ Ayarlar penceresi: sağlayıcı, API anahtarı, dil, kısayol, LLM cilası, bip, hap aç/kapat
-- ✅ Türkçe tepsi menüsü: durum satırı, başlat/durdur, pencereyi aç, config'i aç, çıkış
-- ✅ `typeless` config'ini otomatik taşır — API anahtarını yeniden girmezsin
-- ✅ Sesli bildirimler (başlat/dur/bitti/hata) + görsel karşılıkları
-- ✅ `dikte test`, `dikte devices`, `dikte transcribe dosya.wav`, `dikte autostart`
-
-## Kurulum
-
-Python 3.10+ gerekir (sende 3.11 var — uygun).
-
-```powershell
-# Bu repoyu klonla
-git clone https://github.com/<kullanıcı-adın>/dikte-plus.git
-cd dikte-plus
-
-# Kur (düzenlenebilir kurulum önerilir)
-pip install -e .
-
-# Ücretsiz Groq anahtarı al (kredi kartı yok):
-# https://console.groq.com/keys
-dikte setup
-#  - Sağlayıcı: groq
-#  - API anahtarı: yapıştır
-#  - Dil: tr
-#  - Kısayol: ctrl+shift+space
-
-# Mikrofonu dene
-dikte test
-
-# Başlat (ana pencere + mini hap + tepsi)
-dikte
-```
-
-Komutlar:
-
-| Komut | Ne yapar |
-|---|---|
-| `dikte` / `dikte gui` / `dikte run` | Görsel uygulamayı başlat |
-| `dikte run --no-gui` | Eski tip konsol modu (TypeLess gibi) |
-| `dikte run --no-tray` | Tepsisiz çalış |
-| `dikte setup` | İnteraktif kurulum |
-| `dikte test [sn]` | Kaydet + transkripti yazdır |
-| `dikte devices` | Mikrofonları listele |
-| `dikte transcribe ses.wav` | Dosyayı yazıya dök |
-| `dikte config` / `dikte config set ANAHTAR DEĞER` | Ayarları gör/değiştir |
-| `dikte autostart enable\|disable\|status` | Oturumda otomatik başlat |
-
-## Kullanım
-
-1. Herhangi bir metin kutusuna tıkla (Word, tarayıcı, WhatsApp…).
-2. `Ctrl+Shift+Space`'e bas **veya** hap'a tıkla **veya** ana penceredeki 🎤 butonuna bas.
-   - Hap kırmızı olur, sayaç işler, ses barı oynar → konuş.
-3. Tekrar bas → hap turuncu olur ("Yazıya dökülüyor…", ~1 sn).
-4. Metin imlece yapışır, ana pencerede son metin + geçmişe eklenir.
-
-İpuçları:
-
-```powershell
-# Tek dilde dikte ediyorsan sabitle (doğruluk artar)
-dikte config set language '"tr"'
-
-# Özel isimler / jargon
-dikte config set vocabulary '["PostHog", "Groq", "kubectl"]'
-
-# Hâlâ yanlış yazılanlar için otomatik düzeltme
-dikte config set replacements '{"post hog": "PostHog"}'
-
-# Wispr Flow'daki sihir: dolgu kelime temizliği + kendi düzeltmelerin
-dikte config set cleanup true
-
-# Basılı-tut modu (Wispr Flow'a en yakın his)
-dikte config set hotkey '"ctrl_r"'
-dikte config set hotkey_mode '"hold"'
-
-# Mini hap'ı kapat/aç, saydamlık (0.4-1.0)
-dikte config set overlay_enabled false
-dikte config set overlay_alpha 0.65
-```
-
-## Terminalsiz çalıştırma (önemli)
-
-- `dikte` konsol uygulamasını başlatır: terminali kapatırsan uygulama da kapanır — bu normal.
-- Günlük kullanım için **konsolsuz** başlat:
-  - `dikte-gui` komutunu çalıştır (terminalde iz bırakmaz), veya
-  - `scripts/DiktePlus-Sessiz.vbs` dosyasına çift tıkla, veya
-  - `dikte autostart enable` de — açılışta terminal göstermeden başlar
-    (artık `dikte-gui.exe` + gizli VBS kullanır, yalnızca tepsi + hap gelir).
-- Ana pencereyi kapatırsan (X) uygulama tepsiye küçülür; gerçek çıkış tepsi > Çıkış.
-
-## Odak notu (hap'a tıklayınca imleç)
-
-Hap Windows'ta `WS_EX_NOACTIVATE` ile açılır: tıklama önceki uygulamanın
-odaklanmasını bozmaz, metin kutusundaki imleç korunur. Yine de en sağlam yol
-kısayoldur (`Ctrl+Shift+Space`): fare hiç metin kutusundan ayrılmaz.
-
-## Yapılandırma referansı
-
-`dikte config` dosya yolunu ve içeriği yazdırır
-(Windows: `%APPDATA%\dikte-plus\config.json`).
-
-| Anahtar | Varsayılan | Not |
-|---|---|---|
-| `provider` | `groq` | `groq`, `openai`, `local`, `custom` |
-| `model` | _(boş=varsayılan)_ | Groq'ta `whisper-large-v3` |
-| `api_key` | _(boş)_ | Yoksa `GROQ_API_KEY` / `OPENAI_API_KEY` / `DIKTE_API_KEY` env |
-| `base_url` | _(boş)_ | Sadece `custom` için |
-| `language` | _(boş=oto)_ | Türkçe için `tr` önerilir |
-| `prompt` / `vocabulary` | | Modele bağlam / kelime önyargısı |
-| `replacements` | `{}` | Kelime-sınırı, büyük/küçük harf duyarsız |
-| `hotkey` / `hotkey_mode` | `ctrl+shift+space` / `toggle` | `hold` = basılı-tut |
-| `injection` | `paste` | `type` = karakter karakter yazma |
-| `restore_clipboard` / `append_space` | `true` / `true` | Eski pano + sondaki boşluk |
-| `cleanup` / `cleanup_provider` / `cleanup_model` | kapalı | LLM cilası |
-| `sounds` | `true` | Bip sesleri |
-| `audio_device` | sistem varsayılanı | `dikte devices` ile bak |
-| `max_seconds` / `min_seconds` / `silence_peak` | `120` / `0.3` / `500` | Oto-dur / sessizlik filtresi |
-| `overlay_enabled` / `overlay_position` / `overlay_alpha` / `history_size` | `true` / `top-center` / `0.8` / `20` | **Dikte+'ta yeni** |
-
-## Sorun giderme
-
-- **Hiçbir şey yazılmıyor** → başka uygulamaya yapıştırma engelleniyor olabilir;
-  `dikte config set injection '"type"'` dene. Yönetici olarak çalışan uygulamaya
-  dikte için Dikte+'yı da yönetici çalıştır.
-- **Kısayol çalışmıyor** → başka uygulama aynı komboyu kapmış olabilir;
-  `F8` veya `ctrl_r` gibi yan tuşlar en sorunsuzu. Değişiklikten sonra yeniden başlat.
-- **"API anahtarı yok / reddedildi"** → `dikte setup` veya `GROQ_API_KEY` env.
-  Anahtar: https://console.groq.com/keys
-- **Yanlış mikrofon** → `dikte devices`, sonra `dikte config set audio_device 2`.
-- **Kötü doğruluk** → `language tr` sabitle, `vocabulary` ekle, `whisper-large-v3`
-  kullan (turbo değil), mikrofonu 15–30 cm tut.
-- **Sessizlik atlandı** → giriş seviyesini yükselt, `silence_peak` düşür.
-
-## Proje yapısı
-
-```
-src/dikte_plus/
-  app.py         kayıt → transkripsiyon → yapıştırma çekirdeği + durum yayını
-  ui_main.py     ana pencere + ayarlar + tray/GUI başlatıcı (tkinter)
-  ui_overlay.py  her-zaman-üstte mini hap (sayaç + VU-metre)
-  audio.py       mikrofon + WAV + ses seviyesi
-  hotkey.py      global kısayol
-  inject.py      panoyla yapıştırma
-  tray.py        tepsi simgesi (Türkçe menü)
-  sounds.py      bip tonları
-  cleanup.py     LLM cilası
-  formatting.py  değişim + boşluk + prompt
-  config.py      JSON config (+ typeless'ten taşıma)
-  autostart.py   oturumda başlat
-  providers/     groq/openai/custom (HTTP) + local (faster-whisper)
-  cli.py         `dikte` komutları
-tests/           pytest birim testleri (donanım gerektirmez)
-```
-
-## Yol haritası
-
-- [ ] Akışlı (streaming) transkripsiyon — konuşurken kısmi metin
-- [ ] Sesli aktivite algılama — susunca oto-dur
-- [ ] PyInstaller ile tek-dosya `.exe` (Python'suz kurulum)
-- [ ] Uygulama-bazlı profil (e-posta vs. sohbet vs. kod yorumu tonu)
-
-## Katkı / Lisans
-
-MIT — `LICENSE` dosyasına bak. TypeLess'e teşekkürler (`jlgadgeteer/typeless`).
-
-Öneri ve hata raporu için issue açın. PR'lar memnuniyetle karşılanır:
-`ruff check .` + `pytest` temiz geçmeli.
+> 🇹🇷 **Bu README önce Türkçe, sonra English olarak yazılmıştır.**
+> 🇬🇧 **This README is written in Turkish first, then English.**
 
 ---
 
-### English summary
+# 🇹🇷 TÜRKÇE
 
-**Dikte+** is a visual, Turkish-first voice-dictation app for Windows/macOS powered by
-Groq Whisper (free tier). Press `Ctrl+Shift+Space`, speak, and polished text is pasted
-wherever your cursor is. Inspired by TypeLess (`jlgadgeteer/typeless`, MIT) — same proven
-pipeline (hotkey → mic → STT → cleanup → paste) — but with an always-on-top recording
-pill (timer + VU meter), a full main window (status, history, settings), and a Turkish
-tray menu, so you always know whether you are recording. `pip install -e .`, get a free
-key at https://console.groq.com/keys, run `dikte setup`, then `dikte`.
+**Dikte+**, sesini yazıya çeviren ücretsiz bir dikte uygulamasıdır.
+Kısayola basıp konuşursun, sözlerin imlecinin olduğu yere yazılır.
+Altyapı olarak **Groq Whisper** kullanır — ücretsizdir, kredi kartı istemez.
+
+## 5 Dakikada Kurulum (yeni başlayanlar için)
+
+### 1. Python'u kur
+
+- https://www.python.org/downloads/ adresinden **Python 3.10 veya üstünü** indir.
+- ⚠️ Kurarken **"Add python.exe to PATH"** kutusunu işaretlemeyi unutma.
+- Kontrol et (PowerShell'de):
+  ```powershell
+  python --version
+  ```
+
+### 2. Dikte+'ı indir ve kur
+
+```powershell
+git clone https://github.com/ahmetyusufprojects/dikte-plus.git
+cd dikte-plus
+pip install .
+```
+
+### 3. Ücretsiz Groq anahtarı al (2 dakika, kredi kartsız)
+
+1. https://console.groq.com/keys adresine git, ücretsiz hesap aç.
+2. **Create API Key** butonuna bas, anahtarı kopyala (`gsk_...` ile başlar).
+
+### 4. Kurulumu tamamla
+
+```powershell
+dikte setup
+```
+
+Sana 4 soru sorar — hepsinde Enter'a basıp geçebilirsin, sonra düzenlersin:
+
+| Soru | Önerilen cevap |
+|---|---|
+| Sağlayıcı | `groq` |
+| API anahtarı | kopyaladığın `gsk_...` anahtarı |
+| Kısayol | `ctrl+shift+space` |
+| Dil | `tr` |
+
+### 5. Mikrofonu dene
+
+```powershell
+dikte test
+```
+
+4 saniye konuş, yazıya dökülmüş halini ekranda gör. "Sessizlik" uyarısı alırsan
+mikrofonunu kontrol et (`dikte devices` hangi mikrofonların bağlı olduğunu gösterir).
+
+### 6. Başlat — bu kadar! 🎉
+
+```powershell
+dikte-gui
+```
+
+> `dikte` yazarsan terminal penceresi açık kalır (kapatırsan uygulama kapanır).
+> Günlük kullanımda **`dikte-gui`** yaz — terminal açılmaz, yalnızca tepsi simgesi
+> ve mini hap gelir. Ya da `scripts/DiktePlus-Sessiz.vbs` dosyasına çift tıkla.
+
+Bilgisayar açılınca kendiliğinden başlasın istersen:
+
+```powershell
+dikte autostart enable
+```
+
+## Günlük Kullanım
+
+1. Herhangi bir metin kutusuna tıkla (Word, tarayıcı, WhatsApp…).
+2. `Ctrl+Shift+Space`'e bas **veya** ekrandaki mini hap'a tıkla.
+   Hap kırmızı olur, süre sayar → konuş.
+3. Bitince tekrar bas → hap turuncu olur ("Yazıya dökülüyor…", ~1 saniye).
+4. Metin imlecin oraya yapışır. ✔
+
+**İpucu:** Hap'a tıklamak yerine kısayolu kullan — faren metin kutusundan hiç
+ayrılmaz, imleç hep doğru yerde kalır. (Hap odak çalmayacak şekilde tasarlandı,
+ama kısayol her zaman en garantisidir.)
+
+## Ses Temaları 🔊
+
+Başlat/durdur sesleri artık tek frekanslı "bip" değil; araştırılıp seçilen
+**yükselen ikili / alçalan ikili / üçlü zil** kalıplarında 4 hazır tema var:
+
+| Tema | Karakter |
+|---|---|
+| `soft` (önerilen) | Yumuşak, E5→A5 yükselen |
+| `bright` | Parlak, tiz ve hızlı |
+| `calm` | Sakin, pes ve yavaş |
+| `classic` | Eski tek-ton sesi |
+
+```powershell
+dikte sounds            # temaları listele
+dikte sounds test soft  # dinle (başlat → durdur → bitti)
+dikte sounds set calm   # seç
+```
+
+Ayarlar penceresinden de seçebilirsin (⚙ Ayarlar → Ses teması → ▶ Dene).
+
+**Kendi sesini koymak istersen:** `start.wav`, `stop.wav`, `done.wav`,
+`error.wav` dosyalarını config klasöründeki `sounds/` dizinine bırakman yeterli:
+
+```powershell
+dikte config   # en üstte config dosyasının yolunu yazar
+# Örn: C:\Users\<sen>\AppData\Roaming\dikte-plus\sounds\start.wav
+```
+
+Ücretsiz (CC0) ses katalogları: https://sfxmint.com/category/ui ve
+https://directory.audio/sound-effects/interface-ui
+
+## Mini Hap 💊
+
+- Her zaman en üstte, **yuvarlak köşeli**, yarı saydam küçük gösterge.
+- Gri = hazır, kırmızı + sayaç = kaydediliyor, turuncu = yazıya dökülüyor.
+- Basılı tutup **sürükleyebilirsin** (konum hatırlanmaz, her açılışta üst-ortada başlar).
+- Uzun durum yazısı kutuya sığmazsa yazı **otomatik kayar** (sağa-sola marquee).
+- Saydamlık: `dikte config set overlay_alpha 0.65` (0.4–1.0 arası).
+- Kapatmak istersen: `dikte config set overlay_enabled false`.
+
+## Komutlar
+
+| Komut | Ne yapar |
+|---|---|
+| `dikte-gui` | Konsolsuz başlat (günlük kullanım) |
+| `dikte` / `dikte gui` | Terminalli başlat |
+| `dikte run --no-gui` | Penceresiz konsol modu |
+| `dikte setup` | İnteraktif kurulum |
+| `dikte test [sn]` | Kaydet, sonucu ekrana yaz |
+| `dikte sounds [list\|test\|set]` | Ses temaları |
+| `dikte devices` | Mikrofonları listele |
+| `dikte transcribe ses.wav` | Ses dosyasını yazıya dök |
+| `dikte config` / `dikte config set ANAHTAR DEĞER` | Ayarları gör/değiştir |
+| `dikte autostart enable\|disable\|status` | Açılışta başlat |
+
+## Sık Sorulan Sorular
+
+- **Hiçbir şey yazılmıyor.** Yönetici olarak çalışan pencereye normal kullanıcı
+  dikte edemez — Dikte+'ı yönetici çalıştır. Ya da `dikte config set injection '"type"'` dene.
+- **Kısayol çalışmıyor.** Başka program aynı komboyu kapmış olabilir.
+  `dikte config set hotkey '"f8"'` dene ve uygulamayı yeniden başlat.
+- **"API anahtarı yok/reddedildi".** `dikte setup` ile anahtarı gir veya
+  `GROQ_API_KEY` ortam değişkenini tanımla.
+- **Kötü doğruluk.** `dikte config set language '"tr"'` ile dili sabitle,
+  özel isimleri `vocabulary`'ye ekle, mikrofonu 15–30 cm tut.
+- **`cleanup` nedir?** `dikte config set cleanup true` — "ıı, şey" gibi dolgu
+  kelimelerini temizleyen, kendi düzeltmelerini uygulayan ("5 değil 6" → "6")
+  ücretsiz yapay zekâ cilası.
+
+## Katkı
+
+Hata/öneri için issue aç, PR gönder. `pytest` ve `ruff check .` temiz geçmeli.
+Lisans: MIT (`LICENSE`). TypeLess'e (`jlgadgeteer/typeless`) ilham için teşekkürler.
+
+---
+
+# 🇬🇧 ENGLISH
+
+**Dikte+** is a free voice-dictation app: press a hotkey, speak, and your words are
+typed wherever your cursor is. Powered by **Groq Whisper** — free tier, no credit card.
+
+## 5-Minute Setup (beginners)
+
+### 1. Install Python
+
+- Download **Python 3.10+** from https://www.python.org/downloads/
+- ⚠️ Check **"Add python.exe to PATH"** during install.
+- Verify: `python --version`
+
+### 2. Download & install Dikte+
+
+```powershell
+git clone https://github.com/ahmetyusufprojects/dikte-plus.git
+cd dikte-plus
+pip install .
+```
+
+### 3. Get a free Groq key (2 min, no credit card)
+
+1. Sign up at https://console.groq.com/keys
+2. Click **Create API Key**, copy it (starts with `gsk_...`).
+
+### 4. Finish setup
+
+```powershell
+dikte setup
+```
+
+Suggested answers: provider `groq`, paste your key, hotkey `ctrl+shift+space`,
+language `tr` (or `en`).
+
+### 5. Test your mic
+
+```powershell
+dikte test
+```
+
+Speak for 4 seconds and read the transcript. If it says "silence", check your mic
+(`dikte devices` lists them).
+
+### 6. Launch — done! 🎉
+
+```powershell
+dikte-gui
+```
+
+> `dikte` keeps a terminal open (closing it quits the app).
+> For daily use run **`dikte-gui`** — no terminal, just tray icon + mini pill.
+> Or double-click `scripts/DiktePlus-Sessiz.vbs`.
+
+Auto-start at login (no terminal window):
+
+```powershell
+dikte autostart enable
+```
+
+## Daily Use
+
+1. Click any text field. 2. Press `Ctrl+Shift+Space` **or** click the mini pill.
+   Red + timer = recording. 3. Press again → orange ("transcribing…", ~1s).
+   4. Text is pasted at your cursor. ✔
+
+**Tip:** prefer the hotkey over clicking the pill — your mouse never leaves the
+text field. (The pill is focus-free by design, but the hotkey is bulletproof.)
+
+## Sound Themes 🔊
+
+Start/stop sounds are no longer plain beeps — 4 built-in themes with
+ascending/descending chime patterns (researched from free UI catalogs):
+
+| Theme | Character |
+|---|---|
+| `soft` (recommended) | Gentle, ascending E5→A5 |
+| `bright` | Bright, high and fast |
+| `calm` | Calm, low and slow |
+| `classic` | Legacy single-tone |
+
+```powershell
+dikte sounds            # list themes
+dikte sounds test soft  # preview (start → stop → done)
+dikte sounds set calm   # select
+```
+
+Or pick from the Settings window (⚙ Settings → Sound theme → ▶ Preview).
+
+**Custom sounds:** drop `start.wav`, `stop.wav`, `done.wav`, `error.wav` into the
+`sounds/` folder next to your config (`dikte config` prints the path).
+Free CC0 catalogs: https://sfxmint.com/category/ui,
+https://directory.audio/sound-effects/interface-ui
+
+## Mini Pill 💊
+
+- Always-on-top, **rounded corners**, semi-transparent indicator.
+- Gray = idle, red + timer = recording, orange = transcribing.
+- **Draggable** (hold and drag). Long status text **auto-scrolls** (marquee).
+- Transparency: `dikte config set overlay_alpha 0.65` (0.4–1.0).
+- Disable: `dikte config set overlay_enabled false`.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `dikte-gui` | Console-free launch (daily use) |
+| `dikte` / `dikte gui` | Launch with terminal |
+| `dikte setup` / `test` / `devices` / `transcribe` | Setup / mic test / devices / file |
+| `dikte sounds [list\|test\|set]` | Sound themes |
+| `dikte config` / `dikte config set KEY VALUE` | View/change settings |
+| `dikte autostart enable\|disable\|status` | Start at login |
+
+## FAQ
+
+- **Nothing is typed.** Admin windows need an admin Dikte+. Or try
+  `dikte config set injection '"type"'`.
+- **Hotkey does nothing.** Another app may own the combo; try `f8` and restart.
+- **API key missing/rejected.** Run `dikte setup` or set `GROQ_API_KEY`.
+- **Poor accuracy.** Pin the language (`dikte config set language '"en"'`),
+  add jargon to `vocabulary`, keep mic 15–30 cm away.
+
+## Contributing
+
+Issues and PRs welcome. `pytest` and `ruff check .` must pass. MIT (`LICENSE`).
+Thanks to TypeLess (`jlgadgeteer/typeless`) for inspiration.

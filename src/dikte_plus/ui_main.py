@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from . import autostart
-from .config import load_config, save_config
+from .config import load_config, save_config, sounds_dir
 
 DOT_COLOR = {"idle": "#9aa0a6", "recording": "#ff5252", "transcribing": "#ffb74d"}
 
@@ -27,6 +27,7 @@ class SettingsDialog(tk.Toplevel):
             "hotkey_mode": tk.StringVar(value=cfg.hotkey_mode),
             "cleanup": tk.BooleanVar(value=cfg.cleanup),
             "sounds": tk.BooleanVar(value=cfg.sounds),
+            "sound_theme": tk.StringVar(value=getattr(cfg, "sound_theme", "soft")),
             "overlay_enabled": tk.BooleanVar(value=cfg.overlay_enabled),
         }
         frm = ttk.Frame(self, padding=14)
@@ -55,9 +56,18 @@ class SettingsDialog(tk.Toplevel):
             row=row, column=0, columnspan=2, sticky="w", pady=3
         )
         row += 1
-        ttk.Checkbutton(frm, text="Sesli bildirim (bip)", variable=self.vars["sounds"]).grid(
+        ttk.Checkbutton(frm, text="Sesli bildirim", variable=self.vars["sounds"]).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=3
         )
+        row += 1
+        ttk.Label(frm, text="Ses teması:").grid(row=row, column=0, sticky="w", pady=3)
+        snd = ttk.Frame(frm)
+        snd.grid(row=row, column=1, sticky="w", pady=3)
+        ttk.Combobox(
+            snd, textvariable=self.vars["sound_theme"],
+            values=["soft", "bright", "calm", "classic"], width=18, state="readonly",
+        ).pack(side="left")
+        ttk.Button(snd, text="▶ Dene", width=7, command=self._preview_sound).pack(side="left", padx=(6, 0))
         row += 1
         ttk.Checkbutton(frm, text="Mini göstergeyi (hap) göster", variable=self.vars["overlay_enabled"]).grid(
             row=row, column=0, columnspan=2, sticky="w", pady=3
@@ -73,6 +83,13 @@ class SettingsDialog(tk.Toplevel):
             foreground="gray",
         ).grid(row=row + 1, column=0, columnspan=2, pady=(8, 0))
 
+    def _preview_sound(self):
+        from . import sounds
+
+        theme = self.vars["sound_theme"].get() or "soft"
+        sounds.play("start", theme=theme, sounds_dir=sounds_dir())
+        self.after(600, lambda: sounds.play("stop", theme=theme, sounds_dir=sounds_dir()))
+
     def _save(self):
         cfg = self.app.cfg
         cfg.provider = self.vars["provider"].get().strip() or "groq"
@@ -82,6 +99,7 @@ class SettingsDialog(tk.Toplevel):
         cfg.hotkey_mode = self.vars["hotkey_mode"].get().strip() or "toggle"
         cfg.cleanup = bool(self.vars["cleanup"].get())
         cfg.sounds = bool(self.vars["sounds"].get())
+        cfg.sound_theme = self.vars["sound_theme"].get().strip() or "soft"
         cfg.overlay_enabled = bool(self.vars["overlay_enabled"].get())
         save_config(cfg)
         messagebox.showinfo("Dikte+", "Ayarlar kaydedildi.")

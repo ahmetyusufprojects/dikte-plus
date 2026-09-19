@@ -57,7 +57,12 @@ class DikteApp:
 
     def _play(self, kind: str) -> None:
         if self.cfg.sounds:
-            sounds.play(kind)
+            try:
+                from .config import sounds_dir
+
+                sounds.play(kind, theme=getattr(self.cfg, "sound_theme", "soft"), sounds_dir=sounds_dir())
+            except Exception:
+                sounds.play(kind)
 
     @property
     def level(self) -> float:
