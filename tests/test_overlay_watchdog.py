@@ -1,20 +1,28 @@
-"""Hap bekçisi testleri — ekran gerektirir, yoksa atlanır."""
+"""Hap bekçisi testleri — ekran gerektirir, yoksa atlanır.
+
+Not: süreç başına tek Tk kökü kullanılır; birden çok Tk() aynı süreçte
+"tcl_findLibrary" hatası verebiliyor.
+"""
 
 import pytest
 
-from dikte_plus.ui_overlay import OverlayWatchdog
+from dikte_plus.ui_overlay import Overlay, OverlayWatchdog
 
-try:
-    import tkinter as tk
 
-    _root = tk.Tk()
-    _root.withdraw()
-    _root.destroy()
-    HAS_DISPLAY = True
-except Exception:
-    HAS_DISPLAY = False
+@pytest.fixture(scope="module")
+def tk_root():
+    try:
+        import tkinter as tk
 
-needs_display = pytest.mark.skipif(not HAS_DISPLAY, reason="ekran yok")
+        root = tk.Tk()
+        root.withdraw()
+    except Exception:
+        pytest.skip("ekran yok")
+    yield root
+    try:
+        root.destroy()
+    except Exception:
+        pass
 
 
 class FakeCfg:
@@ -39,56 +47,31 @@ class FakeApp:
         pass
 
 
-@needs_display
-def test_watchdog_recreates_dead_overlay():
-    import tkinter as tk
-
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        app = FakeApp()
-        wd = OverlayWatchdog(root, app)
-        assert wd.overlay is not None and wd.overlay.alive()
-        wd.overlay.win.destroy()
-        root.update_idletasks()
-        assert not wd.overlay.exists()
-        wd.tick()
-        assert wd.overlay is not None and wd.overlay.alive()
-    finally:
-        root.destroy()
+def test_watchdog_recreates_dead_overlay(tk_root):
+    app = FakeApp()
+    wd = OverlayWatchdog(tk_root, app)
+    assert wd.overlay is not None and wd.overlay.alive()
+    wd.overlay.win.destroy()
+    tk_root.update_idletasks()
+    assert not wd.overlay.exists()
+    wd.tick()
+    assert wd.overlay is not None and wd.overlay.alive()
 
 
-@needs_display
-def test_watchdog_reshows_hidden_overlay():
-    import tkinter as tk
-
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        app = FakeApp()
-        wd = OverlayWatchdog(root, app)
-        first = wd.overlay
-        assert first.alive()
-        first.hide()
-        assert not first.alive() and first.exists()
-        wd.tick()
-        assert wd.overlay is first  # aynı pencere, yeniden oluşturmadan
-        assert first.alive()
-    finally:
-        root.destroy()
+def test_watchdog_reshows_hidden_overlay(tk_root):
+    app = FakeApp()
+    wd = OverlayWatchdog(tk_root, app)
+    first = wd.overlay
+    assert first.alive()
+    first.hide()
+    assert not first.alive() and first.exists()
+    wd.tick()
+    assert wd.overlay is first  # aynı pencere, yeniden oluşturmadan
+    assert first.alive()
 
 
-@needs_display
-def test_repin_does_not_raise():
-    import tkinter as tk
-
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        from dikte_plus.ui_overlay import Overlay
-
-        ov = Overlay(root, FakeApp())
-        ov.repin()  # Windows'ta SetWindowPos, başka yerde no-op
-        ov.win.destroy()
-    finally:
-        root.destroy()
+def test_repin_does_not_raise(tk_root):
+    ov = Overlay(tk_root, FakeApp())
+    ov.repin()  # Windows'ta SetWindowPos, başka yerde no-op
+    assert ov.alive()
+    ov.win.destroy()
