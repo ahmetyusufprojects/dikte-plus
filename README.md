@@ -131,6 +131,12 @@ https://directory.audio/sound-effects/interface-ui
 - Uzun durum yazısı kutuya sığmazsa yazı **otomatik kayar** (sağa-sola marquee).
 - Saydamlık: `dikte config set overlay_alpha 0.65` (0.4–1.0 arası).
 - Kapatmak istersen: `dikte config set overlay_enabled false`.
+- **Hap kaybolursa:** uygulamada 1 saniyelik bir bekçi çalışır — hap kapanırsa
+  otomatik yeniden açılır, en-üst sırası ~5 saniyede bir tazelenir. Bilinen
+  Windows sebepleri: tam ekran oyun/video, Uzak Masaüstü, uyku/uyanma ve ekran
+  çözünürlüğü değişimi (Windows'un bunun için bir ayarı yok — "her zaman üstte"
+  bayrağı uygulama bazlıdır, bekçi bunu telafi eder). Yine de kaybolursa tepsi
+  simgesine sağ tık → Pencereyi Aç, veya uygulamayı yeniden başlat.
 
 ## Komutlar
 

@@ -5,4 +5,4 @@ aynı kanıtlanmış boru hattı (hotkey -> mikrofon -> STT -> temizlik -> yapı
 ama bu sefer kullanıcı her an ne olduğunu *görüyor*.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.3.4"

@@ -262,36 +262,14 @@ def run_gui(app, with_tray: bool = True, start_minimized: bool = False) -> None:
         pass
     win = MainWindow(root, app)
 
-    overlay = None
-    if getattr(app.cfg, "overlay_enabled", True):
-        try:
-            from .ui_overlay import Overlay
-
-            overlay = Overlay(root, app, on_open_main=lambda: (root.deiconify(), root.lift()))
-        except Exception as exc:
-            app.log(f"mini gösterge açılamadı: {exc}")
-
-    # Ayar değişince hap'ı aç/kapat (basit yoklama)
-    def _overlay_sync():
-        try:
-            want = bool(app.cfg.overlay_enabled)
-            if overlay is not None:
-                is_hidden = str(overlay.win.state()) == "withdrawn"
-                if want and is_hidden:
-                    overlay.show()
-                elif not want and not is_hidden:
-                    overlay.hide()
-        except Exception:
-            pass
-        try:
-            root.after(1000, _overlay_sync)
-        except Exception:
-            pass
-
+    # Hap bekçisi: 1 sn'de bir yoklar; hap ölmüş/gizlenmişse diriltir,
+    # en-üst sırasını ~5 sn'de bir tazeler. Ayar kapalıysa gizli tutar.
     try:
-        root.after(1000, _overlay_sync)
-    except Exception:
-        pass
+        from .ui_overlay import OverlayWatchdog
+
+        OverlayWatchdog(root, app, on_open_main=lambda: (root.deiconify(), root.lift()))
+    except Exception as exc:
+        app.log(f"mini gösterge açılamadı: {exc}")
 
     icon = None
     if with_tray:

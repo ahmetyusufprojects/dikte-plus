@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dikte-plus"
-version = "0.3.0"
+version = "0.3.4"
 description = "Groq Whisper tabanlı, görsel arayüzlü Türkçe sesli dikte uygulaması (TypeLess'ten ilhamla, sıfırdan yazıldı)."
 readme = "README.md"
 license = { text = "MIT" }

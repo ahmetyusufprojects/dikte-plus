@@ -163,9 +163,46 @@ class Overlay:
         self.win.deiconify()
         self.win.update_idletasks()
         self._make_noactivate()
+        self.repin()
 
     def hide(self):
         self.win.withdraw()
+
+    def exists(self) -> bool:
+        try:
+            return bool(self.win.winfo_exists())
+        except Exception:
+            return False
+
+    def alive(self) -> bool:
+        """Pencere hâlâ yaşıyor ve görünür mü? (bekçi bunu yoklar)."""
+        try:
+            return self.exists() and str(self.win.state()) != "withdrawn"
+        except Exception:
+            return False
+
+    def repin(self) -> None:
+        """En-üste bayrağını işletim sistemine yeniden işlet (odak çalmadan).
+
+        Windows'ta tam ekran uygulamalar, Uzak Masaüstü, uyku/uyanma veya
+        Explorer yeniden başlaması en-üst sırasını bozabiliyor; overlay
+        uygulamalarının standart çözümü bunu periyodik tekrarlamaktır.
+        """
+        try:
+            import sys
+
+            if sys.platform != "win32":
+                return
+            import ctypes
+
+            hwnd = self.win.winfo_id()
+            HWND_TOPMOST = -1
+            SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE = 0x0002, 0x0001, 0x0010
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+            )
+        except Exception:
+            pass
 
     # --- çizim ---
     def _texts(self, state: str):
@@ -219,5 +256,64 @@ class Overlay:
             pass
         try:
             self.win.after(100, self.update)
+        except Exception:
+            pass
+
+
+class OverlayWatchdog:
+    """Hap bekçisi: 1 sn'de bir yoklar, hap ölmüş/gizlenmişse diriltir.
+
+    Kapsadıkları:
+    - pencere bir şekilde yok edildiyse -> sıfırdan yeniden oluşturur,
+    - gizlenmişse (ama ayar açıksa) -> tekrar gösterir,
+    - en-üst sırası bozulmuşsa -> ~5 sn'de bir yeniden iğneler (repin).
+    Ayar kapalıysa hap'ı gizli tutar. Kendisi de Tk `after` ile yaşar.
+    """
+
+    def __init__(self, root: tk.Tk, app, on_open_main=None):
+        self.root = root
+        self.app = app
+        self.on_open_main = on_open_main
+        self.overlay: Overlay | None = None
+        self._ticks = 0
+        try:
+            if bool(getattr(app.cfg, "overlay_enabled", True)):
+                self.overlay = Overlay(root, app, on_open_main=on_open_main)
+        except Exception as exc:
+            try:
+                app.log(f"mini gösterge açılamadı: {exc}")
+            except Exception:
+                pass
+        try:
+            root.after(1000, self.tick)
+        except Exception:
+            pass
+
+    def tick(self):
+        try:
+            want = bool(getattr(self.app.cfg, "overlay_enabled", True))
+            if not want:
+                if self.overlay is not None and self.overlay.alive():
+                    self.overlay.hide()
+            else:
+                if self.overlay is None or not self.overlay.exists():
+                    try:
+                        self.overlay = Overlay(self.root, self.app, on_open_main=self.on_open_main)
+                        try:
+                            self.app.log("mini hap yeniden oluşturuldu")
+                        except Exception:
+                            pass
+                    except Exception:
+                        self.overlay = None
+                elif not self.overlay.alive():
+                    self.overlay.show()
+                if self.overlay is not None and self.overlay.alive():
+                    self._ticks += 1
+                    if self._ticks % 5 == 0:
+                        self.overlay.repin()
+        except Exception:
+            pass
+        try:
+            self.root.after(1000, self.tick)
         except Exception:
             pass
