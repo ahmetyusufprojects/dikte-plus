@@ -18,36 +18,47 @@ def _win_startup_dir() -> Path:
     return Path(base) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 
 
-def _win_target() -> str:
-    """Konsolsuz başlatma hedefini seç: dikte-gui.exe > pythonw -m dikte_plus."""
+def _win_target() -> tuple[str, str]:
+    """(exe_yolu, argümanlar): konsolsuz başlatma hedefini seç."""
     import sysconfig
 
     scripts = Path(sysconfig.get_path("scripts"))
     for name in ("dikte-gui.exe", "dikte-gui", "dikte.exe"):
         exe = scripts / name
         if exe.exists():
-            if name.startswith("dikte-gui"):
-                return str(exe)  # gui-script: konsol penceresi açmaz
-            # dikte.exe konsolludur; VBS yine de gizler ama kısa bir
-            # yanıp sönme olabilir — yine de çalışır.
-            return str(exe)
-    # Son çare: pythonw (konsolsuz Python) ile modül çalıştır
+            # dikte-gui konsol penceresi açmaz; dikte.exe açar ama VBS gizler.
+            return str(exe), ""
+    # Son çare: konsolsuz Python ile modül çalıştır
     pyw = Path(sys.executable).with_name("pythonw.exe")
     if pyw.exists():
-        return f'{pyw} -m dikte_plus run'
-    return f'{Path(sys.executable)} -m dikte_plus run'
+        return str(pyw), " -m dikte_plus run"
+    return str(Path(sys.executable)), " -m dikte_plus run"
 
 
-def enable() -> str:
+def _vbs_text(primary_exe: str, primary_args: str, fallback_cmd: str) -> str:
+    # NOT: VBScript'te iç tırnaklar """ ile yazılır. Kullanıcı adında boşluk
+    # varsa (örn. "Ahmet Yusuf") tırnaksız yol 80070002 hatası verir.
+    return (
+        'Set _sh = CreateObject("Wscript.Shell")\n'
+        'Set _fs = CreateObject("Scripting.FileSystemObject")\n'
+        f'If _fs.FileExists("{primary_exe}") Then\n'
+        f'  _sh.Run """{primary_exe}"""{primary_args}, 0, False\n'
+        "Else\n"
+        f'  _sh.Run "{fallback_cmd}", 0, False\n'
+        "End If\n"
+    )
+
+
+def enable(startup_dir: Path | None = None) -> str:
     if sys.platform == "win32":
-        target = _win_target()
-        vbs = _win_startup_dir() / "DiktePlus.vbs"
+        exe, args = _win_target()
+        # Yedek: exe silinirse PATH üzerinden konsolsuz Python ile çalıştır
+        fallback_cmd = "pythonw -m dikte_plus run"
+        vbs = (startup_dir or _win_startup_dir()) / "DiktePlus.vbs"
         vbs.parent.mkdir(parents=True, exist_ok=True)
         # 0 = gizli pencere, False = bekleme. Konsolsuz exe ile birleşince
         # açılışta hiç terminal görünmez.
-        vbs.write_text(
-            f'CreateObject("Wscript.Shell").Run "{target}", 0, False\n', encoding="utf-8"
-        )
+        vbs.write_text(_vbs_text(exe, args, fallback_cmd), encoding="utf-8")
         return str(vbs)
     if sys.platform == "darwin":
         plist = Path.home() / "Library" / "LaunchAgents" / "com.dikteplus.app.plist"
