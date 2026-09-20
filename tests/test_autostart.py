@@ -27,6 +27,14 @@ def test_enable_writes_quoted_vbs(tmp_path):
     assert "FileExists" in content
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="yalnızca Windows")
+def test_enable_starts_minimized(tmp_path):
+    """Açılış kaydı ana penceresiz başlamalı (yalnızca tepsi + hap)."""
+    out = enable(startup_dir=tmp_path)
+    content = open(out, encoding="utf-8").read()
+    assert "--minimized" in content
+
+
 def test_vbs_no_underscore_identifiers():
     """VBScript'te _ ile başlayan değişken yasak (800A0408 verir)."""
     import re

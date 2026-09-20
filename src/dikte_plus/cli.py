@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> None:
     p_run = sub.add_parser("run", help="uygulamayı başlat (varsayılan)")
     p_run.add_argument("--no-tray", action="store_true", help="tepsi simgesi olmadan çalış")
     p_run.add_argument("--no-gui", action="store_true", help="görsel arayüz olmadan (konsol) çalış")
+    p_run.add_argument("--minimized", action="store_true", help="ana pencere gizli başla (yalnızca tepsi + hap)")
     sub.add_parser("gui", help="ana pencereyle başlat (run ile aynı)")
 
     p_setup = sub.add_parser("setup", help="interaktif ilk kurulum")
@@ -44,7 +45,11 @@ def main(argv: list[str] | None = None) -> None:
     command = args.command or "run"
 
     if command == "run":
-        cmd_run(no_tray=getattr(args, "no_tray", False), gui=not getattr(args, "no_gui", False))
+        cmd_run(
+            no_tray=getattr(args, "no_tray", False),
+            gui=not getattr(args, "no_gui", False),
+            minimized=getattr(args, "minimized", False),
+        )
     elif command == "gui":
         cmd_run(no_tray=False, gui=True)
     elif command == "setup":
@@ -63,12 +68,12 @@ def main(argv: list[str] | None = None) -> None:
         cmd_sounds(args.action, args.theme)
 
 
-def cmd_run(no_tray: bool, gui: bool = True) -> None:
+def cmd_run(no_tray: bool, gui: bool = True, minimized: bool = False) -> None:
     from .app import DikteApp
     from .config import load_config
 
     app = DikteApp(load_config())
-    app.run(tray=not no_tray, gui=gui)
+    app.run(tray=not no_tray, gui=gui, minimized=minimized)
 
 
 def _ask(prompt: str, default: str) -> str:

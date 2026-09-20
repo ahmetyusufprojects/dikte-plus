@@ -208,7 +208,7 @@ class DikteApp:
             except Exception:
                 pass
 
-    def run(self, tray: bool = True, gui: bool = True) -> None:
+    def run(self, tray: bool = True, gui: bool = True, minimized: bool = False) -> None:
         mode_hint = "basılı tut" if self.cfg.hotkey_mode == "hold" else "bas-başlat / bas-durdur"
         self.log(f"sağlayıcı={self.cfg.provider} model={self.cfg.model or '(varsayılan)'}")
         self.log(f"kısayol: {self.cfg.hotkey} ({mode_hint})")
@@ -224,7 +224,7 @@ class DikteApp:
             try:
                 from .ui_main import run_gui
 
-                run_gui(self, with_tray=tray)
+                run_gui(self, with_tray=tray, start_minimized=minimized)
                 return
             except Exception as exc:
                 self.log(f"GUI açılamadı ({exc}); konsol modunda devam")

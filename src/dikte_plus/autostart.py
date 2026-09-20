@@ -52,8 +52,11 @@ def _vbs_text(primary_exe: str, primary_args: str, fallback_cmd: str) -> str:
 def enable(startup_dir: Path | None = None) -> str:
     if sys.platform == "win32":
         exe, args = _win_target()
+        # Açılışta sessiz başla: ana pencere gizli, yalnızca tepsi + hap.
+        # (args zaten boş veya boşlukla başlıyor; sondaki bayrak boşlukla eklenir)
+        args = args + " --minimized"
         # Yedek: exe silinirse PATH üzerinden konsolsuz Python ile çalıştır
-        fallback_cmd = "pythonw -m dikte_plus run"
+        fallback_cmd = "pythonw -m dikte_plus run --minimized"
         vbs = (startup_dir or _win_startup_dir()) / "DiktePlus.vbs"
         vbs.parent.mkdir(parents=True, exist_ok=True)
         # 0 = gizli pencere, False = bekleme. Konsolsuz exe ile birleşince

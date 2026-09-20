@@ -75,6 +75,11 @@ Bilgisayar açılınca kendiliğinden başlasın istersen:
 dikte autostart enable
 ```
 
+> Otomatik başlatma **sessiz** başlar: ana pencere açılmaz, yalnızca tepsi
+> simgesi + mini hap gelir. Pencereyi tepsiye sağ tık → Pencereyi Aç ile
+> (veya hap'a çift tıklayarak) açarsın. Elle de aynısını yapabilirsin:
+> `dikte run --minimized`.
+
 ## Günlük Kullanım
 
 1. Herhangi bir metin kutusuna tıkla (Word, tarayıcı, WhatsApp…).
@@ -134,6 +139,7 @@ https://directory.audio/sound-effects/interface-ui
 | `dikte-gui` | Konsolsuz başlat (günlük kullanım) |
 | `dikte` / `dikte gui` | Terminalli başlat |
 | `dikte run --no-gui` | Penceresiz konsol modu |
+| `dikte run --minimized` | Ana pencere gizli başla (yalnızca tepsi + hap) |
 | `dikte setup` | İnteraktif kurulum |
 | `dikte test [sn]` | Kaydet, sonucu ekrana yaz |
 | `dikte sounds [list\|test\|set]` | Ses temaları |

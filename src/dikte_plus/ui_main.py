@@ -247,7 +247,7 @@ class MainWindow:
             pass
 
 
-def run_gui(app, with_tray: bool = True) -> None:
+def run_gui(app, with_tray: bool = True, start_minimized: bool = False) -> None:
     """Tk ana döngüsünü çalıştır; tray simgesini arka planda başlatır."""
     root = tk.Tk()
     app._ui_root = root
@@ -316,6 +316,13 @@ def run_gui(app, with_tray: bool = True) -> None:
                 pass
 
     root.protocol("WM_DELETE_WINDOW", on_close)
+    if start_minimized:
+        # Sessiz açılış: ana pencere gizli, yalnızca tepsi + hap görünür.
+        # Pencere tepsi menüsünden (Pencereyi Aç) veya hap'a çift tıklayınca açılır.
+        try:
+            root.withdraw()
+        except Exception:
+            pass
     try:
         root.mainloop()
     finally:
