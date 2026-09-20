@@ -39,12 +39,12 @@ def _vbs_text(primary_exe: str, primary_args: str, fallback_cmd: str) -> str:
     # NOT: VBScript'te iç tırnaklar """ ile yazılır. Kullanıcı adında boşluk
     # varsa (örn. "Ahmet Yusuf") tırnaksız yol 80070002 hatası verir.
     return (
-        'Set _sh = CreateObject("Wscript.Shell")\n'
-        'Set _fs = CreateObject("Scripting.FileSystemObject")\n'
-        f'If _fs.FileExists("{primary_exe}") Then\n'
-        f'  _sh.Run """{primary_exe}"""{primary_args}, 0, False\n'
+        'Set sh = CreateObject("Wscript.Shell")\n'
+        'Set fs = CreateObject("Scripting.FileSystemObject")\n'
+        f'If fs.FileExists("{primary_exe}") Then\n'
+        f'  sh.Run """{primary_exe}"""{primary_args}, 0, False\n'
         "Else\n"
-        f'  _sh.Run "{fallback_cmd}", 0, False\n'
+        f'  sh.Run "{fallback_cmd}", 0, False\n'
         "End If\n"
     )
 
